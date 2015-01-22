@@ -1,0 +1,360 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Practical ml by majystr</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Practical ml</h1>
+        <p></p>
+
+        <p class="view"><a href="https://github.com/majystr/Practical_ML">View the Project on GitHub <small>majystr/Practical_ML</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/majystr/Practical_ML/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/majystr/Practical_ML/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/majystr/Practical_ML">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <p></p>
+
+<p></p>
+
+<p></p>Coursera’s Practical Machine Learning Project
+
+
+
+<p>
+</p>
+
+
+
+
+
+
+
+code{white-space: pre;}
+
+<p></p>
+
+
+
+
+  pre:not([class]) {
+    background-color: white;
+  }
+
+
+
+
+<p></p>
+
+<p></p>
+
+
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+
+
+<div>
+
+
+<div id="header">
+<h1>
+<a id="courseras-practical-machine-learning-project" class="anchor" href="#courseras-practical-machine-learning-project" aria-hidden="true"><span class="octicon octicon-link"></span></a>Coursera’s Practical Machine Learning Project</h1>
+<h4>
+<a id="kenneth-d-graves" class="anchor" href="#kenneth-d-graves" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>Kenneth D. Graves</em>
+</h4>
+<h4>
+<a id="january-21-2015" class="anchor" href="#january-21-2015" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>January 21, 2015</em>
+</h4>
+</div>
+
+<p>This is analysis was prepared as a course project for the Coursera Practical Machine Learning Course (predmachlearn-010).</p>
+
+<div id="executive-summary">
+<h1>
+<a id="executive-summary" class="anchor" href="#executive-summary" aria-hidden="true"><span class="octicon octicon-link"></span></a>Executive Summary</h1>
+<p>The goal of this machine learning analysis is to predict the activity quality class (A-E) of six participants in a dumbbell lifting exercise. The classes are:</p>
+<ul>
+<li>Class A: exactly according to the specification</li>
+<li>Class B: throwing the elbows to the front</li>
+<li>Class C: lifting the dumbbell only halfway</li>
+<li>Class D: lowering the dumbbell only halfway</li>
+<li>Class E: throwing the hips to the front.</li>
+</ul>
+<p>Class A is the correct execution of the exercise, while the other 4 classes correspond to common mistakes.</p>
+<p>The data for this analysis came from this site: <a href="http://groupware.les.inf.puc-rio.br/har"></a><a href="mailto:Groupware@LES">Groupware@LES</a>. More information about the data and the testing exercises can be found there.</p>
+</div>
+
+<div id="data-preparation">
+<h1>
+<a id="data-preparation" class="anchor" href="#data-preparation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Data Preparation</h1>
+<p>The input data, loaded from the course’s web site, is composed of 160 variables. The first seven variables include test collection and id information and are discarded for our prediction purposes. A near zero variation test shows that all remaining features have some predictive covariance.</p>
+<p>The input data comes in two files: a training csv file with 19622 observations and a testing validation/problem set with 20 observations for final prediction purposes.</p>
+<pre><code># Load Necessary Libraries
+suppressPackageStartupMessages(library(caret, quietly = TRUE))
+suppressPackageStartupMessages(library(rpart, quietly = TRUE))
+suppressPackageStartupMessages(library(rpart.plot, quietly = TRUE))
+suppressPackageStartupMessages(library(rattle, quietly = TRUE))
+suppressPackageStartupMessages(library(randomForest, quietly = TRUE))
+
+# Download, if necessary
+if (!file.exists("./data")) {
+        dir.create("./data")
+}
+if (!file.exists("./data/pml-training.csv")) {
+    fileURL &lt;- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+    download.file(fileURL,destfile = "./data/pml-training.csv",method = "curl")
+}
+if (!file.exists("./data/pml-testing.csv")) {
+    fileURL &lt;- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+    download.file(fileURL,destfile = "./data/pml-testing.csv",method = "curl")
+}
+
+# Load Data, correctly setting NAs
+training &lt;- read.csv("./data/pml-training.csv",na.strings = c("NA","","#DIV/0!"),stringsAsFactors=FALSE)
+
+# Clean Data
+# Remove first 7 columns which are unnecessary for prediction
+training &lt;- training[,8:length(colnames(training))]
+
+# Drop features with more than 70% NAs
+isNA &lt;- as.vector(apply(training, 2, function(x) length(which(is.na(x)))))
+drop_col &lt;- c()
+for (i in 1:length(colnames(training))) {
+    if (isNA[i] / nrow(training) &gt;= .7) {
+        drop_col &lt;- c(drop_col,i)
+    }
+}
+training &lt;- training[,-drop_col]
+
+# Drop features with near zero variablity
+isNZV &lt;- nearZeroVar(training,saveMetrics = TRUE)
+isNZV</code></pre>
+<pre><code>##                      freqRatio percentUnique zeroVar   nzv
+## roll_belt             1.101904     6.7781062   FALSE FALSE
+## pitch_belt            1.036082     9.3772296   FALSE FALSE
+## yaw_belt              1.058480     9.9734991   FALSE FALSE
+## total_accel_belt      1.063160     0.1477933   FALSE FALSE
+## gyros_belt_x          1.058651     0.7134849   FALSE FALSE
+## gyros_belt_y          1.144000     0.3516461   FALSE FALSE
+## gyros_belt_z          1.066214     0.8612782   FALSE FALSE
+## accel_belt_x          1.055412     0.8357966   FALSE FALSE
+## accel_belt_y          1.113725     0.7287738   FALSE FALSE
+## accel_belt_z          1.078767     1.5237998   FALSE FALSE
+## magnet_belt_x         1.090141     1.6664968   FALSE FALSE
+## magnet_belt_y         1.099688     1.5187035   FALSE FALSE
+## magnet_belt_z         1.006369     2.3290184   FALSE FALSE
+## roll_arm             52.338462    13.5256345   FALSE FALSE
+## pitch_arm            87.256410    15.7323412   FALSE FALSE
+## yaw_arm              33.029126    14.6570176   FALSE FALSE
+## total_accel_arm       1.024526     0.3363572   FALSE FALSE
+## gyros_arm_x           1.015504     3.2769341   FALSE FALSE
+## gyros_arm_y           1.454369     1.9162165   FALSE FALSE
+## gyros_arm_z           1.110687     1.2638875   FALSE FALSE
+## accel_arm_x           1.017341     3.9598410   FALSE FALSE
+## accel_arm_y           1.140187     2.7367241   FALSE FALSE
+## accel_arm_z           1.128000     4.0362858   FALSE FALSE
+## magnet_arm_x          1.000000     6.8239731   FALSE FALSE
+## magnet_arm_y          1.056818     4.4439914   FALSE FALSE
+## magnet_arm_z          1.036364     6.4468454   FALSE FALSE
+## roll_dumbbell         1.022388    84.2065029   FALSE FALSE
+## pitch_dumbbell        2.277372    81.7449801   FALSE FALSE
+## yaw_dumbbell          1.132231    83.4828254   FALSE FALSE
+## total_accel_dumbbell  1.072634     0.2191418   FALSE FALSE
+## gyros_dumbbell_x      1.003268     1.2282132   FALSE FALSE
+## gyros_dumbbell_y      1.264957     1.4167771   FALSE FALSE
+## gyros_dumbbell_z      1.060100     1.0498420   FALSE FALSE
+## accel_dumbbell_x      1.018018     2.1659362   FALSE FALSE
+## accel_dumbbell_y      1.053061     2.3748853   FALSE FALSE
+## accel_dumbbell_z      1.133333     2.0894914   FALSE FALSE
+## magnet_dumbbell_x     1.098266     5.7486495   FALSE FALSE
+## magnet_dumbbell_y     1.197740     4.3012945   FALSE FALSE
+## magnet_dumbbell_z     1.020833     3.4451126   FALSE FALSE
+## roll_forearm         11.589286    11.0895933   FALSE FALSE
+## pitch_forearm        65.983051    14.8557741   FALSE FALSE
+## yaw_forearm          15.322835    10.1467740   FALSE FALSE
+## total_accel_forearm   1.128928     0.3567424   FALSE FALSE
+## gyros_forearm_x       1.059273     1.5187035   FALSE FALSE
+## gyros_forearm_y       1.036554     3.7763735   FALSE FALSE
+## gyros_forearm_z       1.122917     1.5645704   FALSE FALSE
+## accel_forearm_x       1.126437     4.0464784   FALSE FALSE
+## accel_forearm_y       1.059406     5.1116094   FALSE FALSE
+## accel_forearm_z       1.006250     2.9558659   FALSE FALSE
+## magnet_forearm_x      1.012346     7.7667924   FALSE FALSE
+## magnet_forearm_y      1.246914     9.5403119   FALSE FALSE
+## magnet_forearm_z      1.000000     8.5771073   FALSE FALSE
+## classe                1.469581     0.0254816   FALSE FALSE</code></pre>
+<p>We are left with 53 features in which to make our predictions.</p>
+</div>
+
+<div id="evaluation-analysis">
+<h1>
+<a id="evaluation-analysis" class="anchor" href="#evaluation-analysis" aria-hidden="true"><span class="octicon octicon-link"></span></a>Evaluation Analysis</h1>
+<p>As I need to cross-validate the predictive power of our machine learning algorithms so as to choose the most accurate tool, I segmented the training data into an in sample training set and an in sample test set.</p>
+<p>I choose to try two algorithms: Decision Tree and Random Forest. After some experimentation, I chose not to preprocess the covariates in this particular analysis.</p>
+<pre><code>set.seed(20150113)
+in_training &lt;- createDataPartition(y=training$classe,p=0.6,list=FALSE)
+my_training &lt;- training[in_training,]
+my_testing &lt;- training[-in_training,]</code></pre>
+<div id="decision-tree">
+<h2>
+<a id="decision-tree" class="anchor" href="#decision-tree" aria-hidden="true"><span class="octicon octicon-link"></span></a>Decision Tree</h2>
+<p>As a basic floor, I will attempt prediction against my test set using a decision tree.</p>
+<pre><code>fit_dt &lt;- rpart(classe ~ ., data=my_training, method="class")
+fancyRpartPlot(fit_dt)</code></pre>
+<p><img title alt width="672"></p>
+<p>Using the decision tree model, I produced the following prediction:</p>
+<pre><code>predictions_dt &lt;- predict(fit_dt, my_testing, type = "class")
+confusionMatrix(predictions_dt,my_testing$classe)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1797  199   23   44   15
+##          B   80  888  134  109  120
+##          C   55  117 1019  183  146
+##          D  269  263  147  894  216
+##          E   31   51   45   56  945
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.7065          
+##                  95% CI : (0.6963, 0.7165)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.6304          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.8051   0.5850   0.7449   0.6952   0.6553
+## Specificity            0.9499   0.9300   0.9227   0.8636   0.9714
+## Pos Pred Value         0.8648   0.6672   0.6704   0.4997   0.8378
+## Neg Pred Value         0.9246   0.9033   0.9448   0.9353   0.9260
+## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
+## Detection Rate         0.2290   0.1132   0.1299   0.1139   0.1204
+## Detection Prevalence   0.2648   0.1696   0.1937   0.2280   0.1438
+## Balanced Accuracy      0.8775   0.7575   0.8338   0.7794   0.8134</code></pre>
+<p>With a fairly paltry accuracy of 70.65%, my expected out of sample error rate using cross-validation will be greater than 29.35%.</p>
+</div>
+
+<div id="random-forest">
+<h2>
+<a id="random-forest" class="anchor" href="#random-forest" aria-hidden="true"><span class="octicon octicon-link"></span></a>Random Forest</h2>
+<p>Given the low predictive power of the decision tree model, I then used a random forest model.</p>
+<pre><code>fit_rf &lt;- randomForest(as.factor(classe) ~ ., data = my_training)
+predictions_rf &lt;- predict(fit_rf, my_testing, type = "class")
+confusionMatrix(predictions_rf,my_testing$classe)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2232   10    0    0    0
+##          B    0 1507   14    0    0
+##          C    0    1 1354   16    2
+##          D    0    0    0 1269    3
+##          E    0    0    0    1 1437
+## 
+## Overall Statistics
+##                                          
+##                Accuracy : 0.994          
+##                  95% CI : (0.992, 0.9956)
+##     No Information Rate : 0.2845         
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
+##                                          
+##                   Kappa : 0.9924         
+##  Mcnemar's Test P-Value : NA             
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            1.0000   0.9928   0.9898   0.9868   0.9965
+## Specificity            0.9982   0.9978   0.9971   0.9995   0.9998
+## Pos Pred Value         0.9955   0.9908   0.9862   0.9976   0.9993
+## Neg Pred Value         1.0000   0.9983   0.9978   0.9974   0.9992
+## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
+## Detection Rate         0.2845   0.1921   0.1726   0.1617   0.1832
+## Detection Prevalence   0.2858   0.1939   0.1750   0.1621   0.1833
+## Balanced Accuracy      0.9991   0.9953   0.9934   0.9932   0.9982</code></pre>
+<p>With an accuracy of 99.4%, my expected out of sample error rate using cross-validation will be at least 0.6%. I find this acceptable for final prediction and validation purposes.</p>
+</div>
+
+<p></p>
+</div>
+
+<div id="final-predictions">
+<h1>
+<a id="final-predictions" class="anchor" href="#final-predictions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Final Predictions</h1>
+<p>For final predictions, I obviously chose the Random Forest Model for its higher predictive power.</p>
+<pre><code># Load and perform final predictions
+test &lt;- read.csv("./data/pml-testing.csv",na.strings = c("NA","","#DIV/0!"),stringsAsFactors=FALSE)
+test &lt;- test[,8:length(colnames(test))]
+test &lt;- test[,-drop_col]
+test$classe &lt;- predict(fit_rf, test, type="class")
+
+# Generate Submission Files
+if (!file.exists("./submissions")) {
+        dir.create("./submissions")
+}
+
+for (i in 1:nrow(test)) {
+    filename = paste0("./submissions/problem_id_", test$problem_id[i], ".txt")
+    write.table(test$classe[i], file = filename, 
+                quote = FALSE, 
+                row.names = FALSE, 
+                col.names = FALSE)
+}</code></pre>
+<p>The predictions for the final validation test are:</p>
+<pre><code>test$classe</code></pre>
+<pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+</div>
+
+<p></p>
+</div>
+
+
+
+
+
+
+
+<p>
+</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/majystr">majystr</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
