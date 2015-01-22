@@ -5,18 +5,33 @@ date: "January 21, 2015"
 output: html_document
 ---
 
-Blah-blah
+This is analysis was prepared as a course project for the Coursera Practical Machine Learning Course (predmachlearn-010).
 
 # Executive Summary
-Blah-blah
+The goal of this machine learning analysis is to predict the activity quality class (A-E) of six participants in a dumbbell lifting exercise.  The classes are:
 
-```{r}
+* Class A: exactly according to the specification
+* Class B: throwing the elbows to the front
+* Class C: lifting the dumbbell only halfway
+* Class D: lowering the dumbbell only halfway
+* Class E: throwing the hips to the front.
+
+Class A is the correct execution of the exercise, while the other 4 classes correspond to common mistakes.
+
+The data for this analysis came from this site: [Groupware@LES](http://groupware.les.inf.puc-rio.br/har).  More information about the data and the testing exercises can be found there.
+
+# Data Preparation
+The input data, loaded from the course's web site, is composed of 160 variables.  The first seven variables include test collection and id information and are discarded for our prediction purposes.  A near zero variation test shows that all remaining features have some predictive covariance.
+
+The input data comes in two files: a training csv file with 19622 observations and a testing validation/problem set with 20 observations for final prediction purposes.
+
+```{r Data_Preparation}
 # Load Necessary Libraries
-library(caret)
-library(rpart)
-library(rpart.plot)
-library(rattle)
-library(randomForest)
+suppressPackageStartupMessages(library(caret, quietly = TRUE))
+suppressPackageStartupMessages(library(rpart, quietly = TRUE))
+suppressPackageStartupMessages(library(rpart.plot, quietly = TRUE))
+suppressPackageStartupMessages(library(rattle, quietly = TRUE))
+suppressPackageStartupMessages(library(randomForest, quietly = TRUE))
 
 # Download, if necessary
 if (!file.exists("./data")) {
@@ -53,9 +68,14 @@ isNZV <- nearZeroVar(training,saveMetrics = TRUE)
 isNZV
 ```
 
-# Evaluations
+We are left with 53 features in which to make our predictions.
 
-```{r}
+# Evaluation Analysis
+As I need to cross-validate the predictive power of our machine learning algorithms so as to choose the most accurate tool, I segmented the training data into an in sample training set and an in sample test set.
+
+I choose to try two algorithms: Decision Tree and Random Forest.  After some experimentation, I chose not to preprocess the covariates in this particular analysis.
+
+```{r Data_Segmentation}
 set.seed(20150113)
 in_training <- createDataPartition(y=training$classe,p=0.6,list=FALSE)
 my_training <- training[in_training,]
@@ -64,30 +84,39 @@ my_testing <- training[-in_training,]
 
 ## Decision Tree
 
-```{r}
+As a basic floor, I will attempt prediction against my test set using a decision tree.
+
+```{r Decision_Tree}
 fit_dt <- rpart(classe ~ ., data=my_training, method="class")
 fancyRpartPlot(fit_dt)
 ```
 
-Predictions
+Using the decision tree model, I produced the following prediction:
 
-```{r}
+```{r Decision_Tree_Predictions}
 predictions_dt <- predict(fit_dt, my_testing, type = "class")
 confusionMatrix(predictions_dt,my_testing$classe)
 ```
 
+With a fairly paltry accuracy of 70.65%, my expected out of sample error rate using cross-validation will be greater than `r 100 - 70.65`%.
 
-# Evaluation: Random Forest
-```{r}
+## Random Forest
+
+Given the low predictive power of the decision tree model, I then used a random forest model.
+
+```{r RandomForest}
 fit_rf <- randomForest(as.factor(classe) ~ ., data = my_training)
 predictions_rf <- predict(fit_rf, my_testing, type = "class")
 confusionMatrix(predictions_rf,my_testing$classe)
 ```
 
+With an accuracy of 99.4%, my expected out of sample error rate using cross-validation will be at least `r 100 - 99.4`%.  I find this acceptable for final prediction and validation purposes.
 
 # Final Predictions
 
-```{r}
+For final predictions, I obviously chose the Random Forest Model for its higher predictive power.
+
+```{r Final_Predictions}
 # Load and perform final predictions
 test <- read.csv("./data/pml-testing.csv",na.strings = c("NA","","#DIV/0!"),stringsAsFactors=FALSE)
 test <- test[,8:length(colnames(test))]
@@ -106,5 +135,11 @@ for (i in 1:nrow(test)) {
                 row.names = FALSE, 
                 col.names = FALSE)
 }
+```
+
+The predictions for the final validation test are:
+
+```{r Prediction_Output}
+test$classe
 ```
 
