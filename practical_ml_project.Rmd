@@ -11,6 +11,14 @@ Blah-blah
 Blah-blah
 
 ```{r}
+# Load Necessary Libraries
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+
+# Download, if necessary
 if (!file.exists("./data")) {
         dir.create("./data")
 }
@@ -22,14 +30,68 @@ if (!file.exists("./data/pml-testing.csv")) {
     fileURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
     download.file(fileURL,destfile = "./data/pml-testing.csv",method = "curl")
 }
-pml.training <- read.csv("./data/pml-training.csv", stringsAsFactors=FALSE)
+
+# Load Data, correctly setting NAs
+training <- read.csv("./data/pml-training.csv",na.strings = c("NA","","#DIV/0!"),stringsAsFactors=FALSE)
+
+# Clean Data
+# Remove first 7 columns which are unnecessary for prediction
+training <- training[,8:length(colnames(training))]
+
+# Drop features with more than 70% NAs
+isNA <- as.vector(apply(training, 2, function(x) length(which(is.na(x)))))
+drop_col <- c()
+for (i in 1:length(colnames(training))) {
+    if (isNA[i] / nrow(training) >= .7) {
+        drop_col <- c(drop_col,i)
+    }
+}
+training <- training[,-drop_col]
+
+# Drop features with near zero variablity
+isNZV <- nearZeroVar(training,saveMetrics = TRUE)
+isNZV
+```
+
+# Evaluations
+
+```{r}
+set.seed(20150113)
+in_training <- createDataPartition(y=training$classe,p=0.6,list=FALSE)
+my_training <- training[in_training,]
+my_testing <- training[-in_training,]
+```
+
+## Decision Tree
+
+```{r}
+fit_dt <- rpart(classe ~ ., data=my_training, method="class")
+fancyRpartPlot(fit_dt)
+```
+
+Predictions
+
+```{r}
+predictions_dt <- predict(fit_dt, my_testing, type = "class")
+confusionMatrix(predictions_dt,my_testing$classe)
+```
+
+
+# Evaluation: Random Forest
+```{r}
+fit_rf <- randomForest(as.factor(classe) ~ ., data = my_training)
+predictions_rf <- predict(fit_rf, my_testing, type = "class")
+confusionMatrix(predictions_rf,my_testing$classe)
+```
+
+
+# Final Predictions
+
+```{r}
+# Load and prepare test set
+test <- read.csv("./data/pml-testing.csv",na.strings = c("NA","","#DIV/0!"),stringsAsFactors=FALSE)
+test <- test[,8:length(colnames(test))]
+test <- test[,-drop_col]
 
 ```
 
-You can also embed plots, for example:
-
-```{r, echo=FALSE}
-plot(cars)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
