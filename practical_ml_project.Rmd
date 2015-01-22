@@ -88,10 +88,23 @@ confusionMatrix(predictions_rf,my_testing$classe)
 # Final Predictions
 
 ```{r}
-# Load and prepare test set
+# Load and perform final predictions
 test <- read.csv("./data/pml-testing.csv",na.strings = c("NA","","#DIV/0!"),stringsAsFactors=FALSE)
 test <- test[,8:length(colnames(test))]
 test <- test[,-drop_col]
+test$classe <- predict(fit_rf, test, type="class")
 
+# Generate Submission Files
+if (!file.exists("./submissions")) {
+        dir.create("./submissions")
+}
+
+for (i in 1:nrow(test)) {
+    filename = paste0("./submissions/problem_id_", test$problem_id[i], ".txt")
+    write.table(test$classe[i], file = filename, 
+                quote = FALSE, 
+                row.names = FALSE, 
+                col.names = FALSE)
+}
 ```
 
